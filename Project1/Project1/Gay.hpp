@@ -2,6 +2,9 @@
 #include <iostream>
 #include <opencv2\opencv.hpp>
 #include <queue>
+#include "mysql/mysql.h"
+
+#pragma comment(lib, "libmysql.lib")
 
 using namespace std;
 using namespace cv;
@@ -12,6 +15,12 @@ extern int finger;
 uchar bilinear_value(Mat img, double x, double y);
 
 void scaling_bilinear(Mat img, Mat& dst, Size size);
+
+
+
+
+void insert_score(const char * name, int score);
+void road_rank(int i, std::vector<std::string>& namev, std::vector<int>& scorev);
 
 class Retarder
 {
@@ -73,7 +82,9 @@ private:
 	Retarder *timer;
 	int count = 0;
 	int res_pl = 0;
-
+	int score = 0;
+	bool interupt = false;
+	string name;
 
 	VideoCapture video;
 
@@ -123,19 +134,27 @@ public:
 		if (count == 3 && isStart) {
 			if(res_pl == compu){
 				addLog("> draw!");
+				addLog("> Score : " + score);
 			}
 			else if ((res_pl + 1) % 3 == compu) {
 				addLog("> Lose!");
+				score = 0;
+				interupt = true;
+				addLog("> Score : " + score);
+				addLog("> Upload to Database? Y / N");
+				isStart = false;
 			}
 			else {
 				addLog("> Win!");
+				score++;
+				addLog("> Score : " + score);
 
 			}
 			isStart = false;
 			count = 0;
 		}
 
-		if (isStart) {
+		if (isStart && !interupt) {
 			if (timer->expired()) {
 				count++;
 			}
@@ -163,6 +182,32 @@ public:
 				isStart = true;
 			}
 		}
+		if (interupt) {
+			char c = waitKey(1);
+			if (c == 'Y') {
+				addLog("> Starting Upload to DB");
+				addLog("> Your Name? (type)");
+				while (true) {
+					char v = waitKey(1);
+					name += v;
+					if (v == '\n')
+						break;
+				}
+
+				insert_score(name.c_str(), score);
+				addLog("> Uploaded !");
+
+				interupt = false;
+			}
+			else if (c == 'N') {
+				addLog("> cancel");
+				interupt = false;
+			}
+			else {
+				addLog("> Please answer Y or N");
+			}
+		}
+		
 
 		Render(mat_Computer, BG, Computer, s1);
 		Render(mat_Player, BG, Player, s2);
